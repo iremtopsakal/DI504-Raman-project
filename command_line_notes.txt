@@ -1,0 +1,33 @@
+## For Windows
+python -m venv venv
+.\venv\Script\Activate.ps1
+
+## For Mac
+python3 -m venv venv
+source venv/bin/activate
+
+## General 
+pip3 freeze > requirements.txt
+pip3 install -r requirements.txt
+deactivate 
+
+## Github
+git init               --> creates Git project in current folder
+git add `filename`     --> stages a specific file
+git add .              --> stages all changes in the folder
+git status             --> shows current status of changes
+git commit -m "`your message`"    --> saves staged changes with a message
+git log                --> shows commit history
+
+git remote add origin `<your-repo-url>`  --> links local repo to GitHub
+git push -u origin master    --> pushes code to GitHub (first time)
+git push               --> pushes latest commits to GitHub
+git pull               --> pulls latest changes from GitHub
+
+git clone `<repo-url>`       --> clones a GitHub repo to your computer
+
+git reset              --> unstages all files
+git reset `filename`     --> unstages a specific file
+
+git diff               --> shows changes (unstaged)
+git checkout -- filename  --> reverts file to last commit
