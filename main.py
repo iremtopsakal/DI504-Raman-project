@@ -1,14 +1,17 @@
 import torch
 from torch.utils.data import DataLoader, random_split
 from resnet import ResNet
-#from data import RamanSpectraDataset
 from training import run_epoch
 import matplotlib.pyplot as plt
-# from data import RamanSpectraDataset  # for all concentrations
-from data2 import RamanSpectraDataset  # for only X-1 concentrations
+from data import RamanSpectraDataset  # for all concentrations
+# from data2 import RamanSpectraDataset  # for only X-1 concentrations
+import numpy as np
+import optuna
+from optuna.trial import Trial
+
 
 # ===== Setup =====
-data_path = "Data/ASL baseline corrected"
+data_path = "Data/ASL baseline corrected merged"
 # Automatically determine input dimension from first sample
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -17,46 +20,96 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 dataset = RamanSpectraDataset(
     data_path,
     augment=False,        # no random live augment
-    offline_aug=False,     # YES, make in-memory virtual augmentations
-    num_aug=4             # 2 per file
+    offline_aug=True,     # YES, make in-memory virtual augmentations
+    num_aug=2             # 2 per file
 )
 sample_x, _ = dataset[0]
 input_dim = sample_x.shape[-1]
 
+
+
 train_size = int(0.8 * len(dataset))
-val_size = len(dataset) - train_size
-train_set, val_set = random_split(dataset, [train_size, val_size])
+val_size = int(0.1 * len(dataset))
+test_size = len(dataset) - train_size - val_size
+
+train_set, val_set, test_set = random_split(dataset, [train_size, val_size, test_size])
 
 train_loader = DataLoader(train_set, batch_size=32, shuffle=True)
 val_loader = DataLoader(val_set, batch_size=32)
+test_loader = DataLoader(test_set, batch_size=32)
+
+
+# ===== Optuna for hyperparameter tuning =====
+def objective(trial: Trial):
+    hidden_sizes = [
+        trial.suggest_categorical("hidden_1", [32, 64, 128]),
+        trial.suggest_categorical("hidden_2", [64, 128, 256]),
+        trial.suggest_categorical("hidden_3", [128, 256, 512])
+    ]
+    learning_rate = trial.suggest_float("lr", 1e-5, 1e-2, log=True)
+
+    model = ResNet(
+        hidden_sizes=hidden_sizes,
+        num_blocks=[2, 2, 2],
+        input_dim=input_dim,
+        n_classes=1
+    ).to(device)
+
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+
+    # Short training for tuning
+    for epoch in range(1, 6):
+        train_loss, *_ = run_epoch(epoch, model, train_loader, cuda=torch.cuda.is_available(),
+                                   training=True, optimizer=optimizer)
+        val_loss, *_ = run_epoch(epoch, model, val_loader, cuda=torch.cuda.is_available(),
+                                 training=False)
+
+    return val_loss
+
+study = optuna.create_study(direction="minimize")
+study.optimize(objective, n_trials=10)  # Increase n_trials for better tuning
+
+print("Best params:", study.best_params)
+
+
+
+
 
 # ===== Define model =====
+best_hidden = [
+    study.best_params["hidden_1"],
+    study.best_params["hidden_2"],
+    study.best_params["hidden_3"]
+]
+best_lr = study.best_params["lr"]
+
 model = ResNet(
-    hidden_sizes=[64, 128, 256],
+    hidden_sizes=best_hidden,
     num_blocks=[2, 2, 2],
     input_dim=input_dim,
     n_classes=1
 ).to(device)
 
-
-optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
-
+optimizer = torch.optim.Adam(model.parameters(), lr=best_lr)
 # ===== Metric storage =====
 train_losses, val_losses = [], []
 train_maes, val_maes = [], []
 train_rmses, val_rmses = [], []
 train_r2s, val_r2s = [], []
+train_loss_iters, val_loss_iters = [], []
 
 # ===== Train model =====
 for epoch in range(1, 21):
-    train_loss, train_mae, train_rmse, train_r2 = run_epoch(
+    train_loss, train_mae, train_rmse, train_r2, train_kappa, train_conf, train_batch_losses = run_epoch(
         epoch, model, train_loader, cuda=torch.cuda.is_available(), training=True, optimizer=optimizer
     )
-    val_loss, val_mae, val_rmse, val_r2 = run_epoch(
+    val_loss, val_mae, val_rmse, val_r2, val_kappa, val_conf, val_batch_losses = run_epoch(
         epoch, model, val_loader, cuda=torch.cuda.is_available(), training=False
     )
 
     # Save metrics
+    train_loss_iters.extend(train_batch_losses)
+    val_loss_iters.extend(val_batch_losses)
     train_losses.append(train_loss)
     val_losses.append(val_loss)
     train_maes.append(train_mae)
@@ -67,8 +120,8 @@ for epoch in range(1, 21):
     val_r2s.append(val_r2)
 
     print(f"Epoch {epoch}")
-    print(f"  Train: Loss={train_loss:.4f}, MAE={train_mae:.4f}, RMSE={train_rmse:.4f}, R2={train_r2:.4f}")
-    print(f"  Val  : Loss={val_loss:.4f}, MAE={val_mae:.4f}, RMSE={val_rmse:.4f}, R2={val_r2:.4f}")
+    print(f"  Train: Loss={train_loss:.4f}, MAE={train_mae:.4f}, RMSE={train_rmse:.4f}, R2={train_r2:.4f}, Kappa={train_kappa:.4f}")
+    print(f"  Val  : Loss={val_loss:.4f}, MAE={val_mae:.4f}, RMSE={val_rmse:.4f}, R2={val_r2:.4f}, Kappa={val_kappa:.4f}")
 
 # ===== Save model =====
 torch.save(model.state_dict(), "cv_model.ckpt")
@@ -76,6 +129,42 @@ print("✅ Model saved as cv_model.ckpt")
 
 # ===== Plot Metrics =====
 epochs = range(1, 21)
+
+# ===== Plot Metrics =====
+epochs = range(1, 21)
+
+def plot_loss_graph(loss_list):
+    """Plot smoothed training and validation loss curves using moving average.
+    The smaller list is scaled to match the larger one for visual alignment.
+    """
+    from math import gcd
+    plt.figure()
+    plt.xlabel('Iterations')
+    plt.ylabel('Loss')
+
+    lengths = [len(x) for x in loss_list]
+    upsample_ratios = np.round(max(lengths) / np.array(lengths)).astype(int)
+
+    for loss, ratio in zip(loss_list, upsample_ratios):
+        if len(loss) > 1:
+            filter_size = max(1, len(loss) // 10)
+        else:
+            filter_size = 1
+        kernel = np.ones(filter_size) / filter_size
+        smoothed = np.convolve(loss, kernel, mode='valid')
+        plt.plot(np.repeat(smoothed, ratio))
+
+    plt.legend(['Train Loss', 'Validation Loss'])
+    plt.title("Smoothed Loss Curves")
+    plt.grid(True)
+    plt.savefig("loss.png")
+
+
+# Use this instead of the old individual plot calls:
+plot_loss_graph([train_loss_iters, val_loss_iters])
+plt.savefig("loss_plot_smoothed.png")
+
+
 
 def plot_metric(train_vals, val_vals, ylabel, title, filename):
     plt.figure()
@@ -93,3 +182,53 @@ plot_metric(train_losses, val_losses, "Loss", "Loss over Epochs", "loss_plot.png
 plot_metric(train_maes, val_maes, "MAE", "Mean Absolute Error over Epochs", "mae_plot.png")
 plot_metric(train_rmses, val_rmses, "RMSE", "Root Mean Squared Error over Epochs", "rmse_plot.png")
 plot_metric(train_r2s, val_r2s, "R²", "R² Score over Epochs", "r2_plot.png")
+
+# ===== Final Confusion Matrix =====
+import pandas as pd
+import seaborn as sns
+from sklearn.metrics import classification_report, accuracy_score
+
+test_loss, test_mae, test_rmse, test_r2, test_kappa, test_conf, test_batch_losses = run_epoch(
+    "Test", model, test_loader, cuda=torch.cuda.is_available(), training=False
+)
+
+print("\nFinal Test Confusion Matrix:")
+test_confusion_df = pd.DataFrame(test_conf, index=[-5, -6, -7, -8, -9], columns=[-5, -6, -7, -8, -9])
+print(test_confusion_df)
+
+# Optional: plot confusion matrix for test
+plt.figure(figsize=(6,5))
+sns.heatmap(test_confusion_df, annot=True, fmt="d", cmap="Blues")
+plt.xlabel("Predicted")
+plt.ylabel("Actual")
+plt.title("Test Confusion Matrix")
+plt.savefig("confusion_matrix_test.png")
+
+
+# ===== Classification Report and Accuracy =====
+from sklearn.metrics import classification_report, accuracy_score
+
+# Re-run test_loader to collect predictions and actuals
+test_preds = []
+test_actuals = []
+
+model.eval()
+with torch.no_grad():
+    for x, y in test_loader:
+        x = x.to(device)
+        y = y.to(device)
+        outputs = model(x).squeeze()
+        preds = [min(-5, max(-9, int(round(p.item())))) for p in outputs]
+        labels = [int(round(t.item())) for t in y]
+
+        test_preds.extend(preds)
+        test_actuals.extend(labels)
+
+# Print classification report
+print("\nClassification Report:")
+target_names = ['1e-5', '1e-6', '1e-7', '1e-8', '1e-9']
+print(classification_report(test_actuals, test_preds, labels=[-5, -6, -7, -8, -9], target_names=target_names))
+
+# Print test accuracy
+test_acc = accuracy_score(test_actuals, test_preds)
+print(f"Test Accuracy: {test_acc:.3f}")

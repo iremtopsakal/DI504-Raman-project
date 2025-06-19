@@ -4,6 +4,7 @@ import torch
 import numpy as np
 from tqdm import tqdm
 from sklearn.metrics import mean_absolute_error, root_mean_squared_error, r2_score
+from sklearn.metrics import cohen_kappa_score, confusion_matrix
 
 def run_epoch(epoch, model, dataloader, cuda, training=False, optimizer=None):
     if training:
@@ -16,6 +17,7 @@ def run_epoch(epoch, model, dataloader, cuda, training=False, optimizer=None):
 
     all_preds = []
     all_targets = []
+    batch_losses = []
 
     for batch_idx, (inputs, targets) in enumerate(tqdm(dataloader, desc=f"Epoch {epoch} {'Train' if training else 'Val'}")):
         if cuda:
@@ -24,6 +26,7 @@ def run_epoch(epoch, model, dataloader, cuda, training=False, optimizer=None):
 
         outputs = model(inputs).squeeze()
         loss = nn.MSELoss()(outputs, targets)
+        batch_losses.append(loss.item())
 
         if training:
             optimizer.zero_grad()
@@ -46,7 +49,13 @@ def run_epoch(epoch, model, dataloader, cuda, training=False, optimizer=None):
     rmse = root_mean_squared_error(all_targets, all_preds)
     r2 = r2_score(all_targets, all_preds)
 
-    return avg_loss, mae, rmse, r2
+    # Round targets to match the format of predictions
+    rounded_targets = [min(-5, max(-9, int(round(t)))) for t in all_targets]
+
+# Compute weighted kappa and confusion matrix
+    kappa = cohen_kappa_score(rounded_targets, all_preds, weights='quadratic')
+    conf_mat = confusion_matrix(rounded_targets, all_preds, labels=[-5, -6, -7, -8, -9])
+    return avg_loss, mae, rmse, r2, kappa, conf_mat, batch_losses
 
 
 def get_predictions(model, dataloader, cuda, get_probs=False):
