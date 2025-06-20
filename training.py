@@ -6,6 +6,20 @@ from tqdm import tqdm
 from sklearn.metrics import mean_absolute_error, root_mean_squared_error, r2_score
 from sklearn.metrics import cohen_kappa_score, confusion_matrix
 
+"""
+This script defines training and evaluation utilities for a regression model using PyTorch
+
+1. run_epoch: Performs one full pass over the dataset (train or validation).
+  - Computes MSE loss, MAE, RMSE, R², weighted Cohen's kappa, and confusion matrix
+  - Supports optional rounding of predictions to nearest integer log10 value
+
+2. get_predictions: Generates model predictions from a DataLoader
+
+Notes:
+- Designed for log-scaled targets (log10 concentrations)
+"""
+
+
 def run_epoch(epoch, model, dataloader, cuda, training=False, optimizer=None):
     if training:
         model.train()

@@ -4,6 +4,31 @@ import torch
 from torch.utils.data import Dataset, DataLoader, random_split
 from augment import apply_augmentation
 
+"""
+This file defines `RamanSpectraDataset` for loading Raman spectroscopy data
+for deep learning.
+
+1. Dataset Structure:
+   - Assumes a directory structure where subfolders are named like '5', '6', etc., corresponding to
+     concentrations in scientific notation (e.g., folder '5' -> concentration 1e-5)
+   - Each folder contains `.txt` files with Raman spectra data in two columns: Raman shift (ignored)
+     and intensity (used as input)
+
+2. Label Encoding:
+   - The label for each sample is the base-10 logarithm of the concentration, `log10(1e-5) = -5.0`
+
+3. Augmentation Handling
+
+4. Subset slection:
+   - `subset="raw"`: Only loads raw entries (without augmentation)
+   - `subset="aug"`: Only augmented duplicates (for use with offline augmentation)
+   - `subset="all"`: Both raw and augmented entries.
+
+5. Returns
+6. Augmentation
+"""
+
+
 class RamanSpectraDataset(Dataset):
     def __init__(self, root_dir, augment=False, offline_aug=False, num_aug=2, subset="all"):
         assert subset in ["raw", "aug", "all"], "subset must be 'raw', 'aug', or 'all'"

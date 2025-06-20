@@ -3,8 +3,18 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset, DataLoader, random_split
 import numpy as np
+"""
+This script provides data augmentation tools for Raman spectra.
 
-# === Augmentation Functions ===
+1. Augmentation functions: 
+    - shift, scale, and noise to simulate spectral variation.
+2. apply_augmentation: 
+    - Combines all augmentations with optional randomness.
+3. generate_augmented_files: 
+    - Saves new augmented .txt files when run directly.
+4.  AugmentedWrapper:  
+    - Dataset wrapper for augmentation during training.
+"""
 
 def shift_spectrum(intensities, max_shift=3):
     shift = np.random.randint(-max_shift, max_shift + 1)

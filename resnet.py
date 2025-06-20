@@ -3,6 +3,21 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 
+"""
+Implements a 1D Residual Neural Network (ResNet) architecture using PyTorch. 
+It includes the following components:
+
+1. ResidualBlock:
+   - A basic residual block with two 1D convolutional layers followed by
+     batch normalization and ReLU activation
+   - Identity shortcut connections and projection shortcuts when the input and output
+     dimensions differ
+
+2. ResNet:
+   - Begins with an initial 1D convolutional layer, followed by a configurable number of residual layers.
+   - Computes the output size of the encoder automatically and applies a final linear layer to map
+     encoded features to the desired number of output classes.
+"""
 
 class ResidualBlock(nn.Module):
     def __init__(self, in_channels, out_channels, stride=1):
