@@ -3,11 +3,12 @@ from torch.utils.data import DataLoader, random_split
 from resnet import ResNet
 from training import run_epoch
 import matplotlib.pyplot as plt
-from data import RamanSpectraDataset  # for all concentrations
-# from data2 import RamanSpectraDataset  # for only X-1 concentrations
+from data import RamanSpectraDataset  
+# from data2 import RamanSpectraDataset  
 import numpy as np
 import optuna
 from optuna.trial import Trial
+from augment import AugmentedWrapper
 
 
 # ===== Setup =====
@@ -19,25 +20,29 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # ===== Load dataset =====
 dataset = RamanSpectraDataset(
     data_path,
-    augment=False,        # no random live augment
-    offline_aug=True,     # YES, make in-memory virtual augmentations
-    num_aug=2             # 2 per file
+    augment=False,        # No live augment
+    offline_aug=False     # No offline aug yet
 )
 sample_x, _ = dataset[0]
 input_dim = sample_x.shape[-1]
 
-
-
-train_size = int(0.8 * len(dataset))
-val_size = int(0.1 * len(dataset))
+train_size = int(0.7 * len(dataset))
+val_size = int(0.15 * len(dataset))
 test_size = len(dataset) - train_size - val_size
 
 train_set, val_set, test_set = random_split(dataset, [train_size, val_size, test_size])
+
+train_set = AugmentedWrapper(train_set, num_aug=3)  # for example
 
 train_loader = DataLoader(train_set, batch_size=32, shuffle=True)
 val_loader = DataLoader(val_set, batch_size=32)
 test_loader = DataLoader(test_set, batch_size=32)
 
+print(f"Raw dataset size (before split): {len(dataset)}")
+print(f"Training samples: {len(train_set)}")
+print(f"Validation samples: {len(val_set)}")
+print(f"Test samples: {len(test_set)}")
+print(f"Input dimension: {input_dim}")
 
 # ===== Optuna for hyperparameter tuning =====
 def objective(trial: Trial):
@@ -125,40 +130,44 @@ for epoch in range(1, 21):
 
 # ===== Save model =====
 torch.save(model.state_dict(), "cv_model.ckpt")
-print("✅ Model saved as cv_model.ckpt")
+print("Model saved as cv_model.ckpt")
 
-# ===== Plot Metrics =====
-epochs = range(1, 21)
 
 # ===== Plot Metrics =====
 epochs = range(1, 21)
 
 def plot_loss_graph(loss_list):
     """Plot smoothed training and validation loss curves using moving average.
-    The smaller list is scaled to match the larger one for visual alignment.
+    Validation loss is interpolated to match the number of training iterations.
     """
-    from math import gcd
     plt.figure()
     plt.xlabel('Iterations')
     plt.ylabel('Loss')
 
-    lengths = [len(x) for x in loss_list]
-    upsample_ratios = np.round(max(lengths) / np.array(lengths)).astype(int)
+    train_loss = loss_list[0]
+    val_loss = loss_list[1]
 
-    for loss, ratio in zip(loss_list, upsample_ratios):
-        if len(loss) > 1:
-            filter_size = max(1, len(loss) // 10)
-        else:
-            filter_size = 1
-        kernel = np.ones(filter_size) / filter_size
-        smoothed = np.convolve(loss, kernel, mode='valid')
-        plt.plot(np.repeat(smoothed, ratio))
+    # Match validation loss length to training loss
+    if len(train_loss) > len(val_loss):
+        val_loss_interp = np.interp(
+            np.linspace(0, len(val_loss) - 1, len(train_loss)),
+            np.arange(len(val_loss)),
+            val_loss
+        )
+    else:
+        val_loss_interp = val_loss
 
-    plt.legend(['Train Loss', 'Validation Loss'])
+    filter_size = max(1, len(train_loss) // 10)
+    kernel = np.ones(filter_size) / filter_size
+    train_smoothed = np.convolve(train_loss, kernel, mode='valid')
+    val_smoothed = np.convolve(val_loss_interp, kernel, mode='valid')
+
+    plt.plot(train_smoothed, label='Train Loss')
+    plt.plot(val_smoothed, label='Validation Loss')
+    plt.legend()
     plt.title("Smoothed Loss Curves")
     plt.grid(True)
     plt.savefig("loss.png")
-
 
 # Use this instead of the old individual plot calls:
 plot_loss_graph([train_loss_iters, val_loss_iters])

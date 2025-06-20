@@ -1,5 +1,8 @@
 import os
 import numpy as np
+import torch
+from torch.utils.data import Dataset, DataLoader, random_split
+import numpy as np
 
 # === Augmentation Functions ===
 
@@ -20,9 +23,8 @@ def add_noise(intensities, noise_level=0.005):
     noise = np.random.normal(0, noise_level, size=intensities.shape)
     return intensities + noise
 
-def apply_augmentation(intensities, augment_prob=0.5):
-    """Used by dataset: apply live/random augmentation in RAM."""
-    if np.random.rand() < augment_prob:
+def apply_augmentation(intensities, force=False, augment_prob=0.5):
+    if force or np.random.rand() < augment_prob:
         intensities = shift_spectrum(intensities)
         intensities = scale_intensity(intensities)
         intensities = add_noise(intensities)
@@ -59,3 +61,25 @@ def generate_augmented_files(input_root="Data/ASL baseline corrected merged", nu
 
 if __name__ == "__main__":
     generate_augmented_files()
+
+
+class AugmentedWrapper(torch.utils.data.Dataset):
+    def __init__(self, base_dataset, num_aug=1):
+        self.base_dataset = base_dataset
+        self.num_aug = num_aug
+
+    def __len__(self):
+        return len(self.base_dataset) * (self.num_aug + 1)
+
+    def __getitem__(self, idx):
+        base_len = len(self.base_dataset)
+        base_idx = idx % base_len
+        x, y = self.base_dataset[base_idx]
+
+        if idx < base_len:
+            return x, y  # Return original data
+        else:
+            x_aug = apply_augmentation(x.squeeze().numpy(), force=True)
+            x_aug = (x_aug - x_aug.mean()) / (x_aug.std() + 1e-8)
+            x = torch.tensor(x_aug[np.newaxis, :], dtype=torch.float32)
+            return x, y
