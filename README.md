@@ -4,7 +4,7 @@ The dataset used in this project belongs to Prof. Dr. Alpan Bek. Due to data sha
 
 As a result, `preprocessing.ipynb` notebook which was originally used to process the raw data can not be executed without access to raw files. However, it is included for illustrate the preprocessing steps applied before training.
 
-The **preprocessed dataset** used in this study is available via an external link LIIIIINKKKKK. After downloaded, make sure to update `data_path` variable inside the `main.ipynb` notebook accordingly to point to your local dataset folder.
+The **preprocessed dataset** used in this study is available via an external link (https://drive.google.com/drive/folders/1f_oKUhIuQQqCYChH171NfNvVo5N5Kruq?usp=sharing). After downloaded, make sure to update `data_path` variable inside the `main.ipynb` notebook accordingly to point to your local dataset folder.
 
 ## Project File Descriptions
 
