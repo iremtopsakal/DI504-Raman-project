@@ -6,13 +6,13 @@ As a result, `preprocessing.ipynb` notebook which was originally used to process
 
 The preprocessed dataset used in this study is available via an external link (https://drive.google.com/drive/folders/1f_oKUhIuQQqCYChH171NfNvVo5N5Kruq?usp=sharing). After downloaded, make sure to update `data_path` variable inside the `main.ipynb` notebook accordingly to point to your local dataset folder.
 
-This project is implemented based on [1] and portions of the original code from [1] are adapted. Link: https://github.com/
+This project is implemented based on [1] and portions of the original code from [1] are adapted. Link: https://github.com/csho33/bacteria-ID
 
 
 ## Project File Descriptions
 
 - `preprocessing.ipynb` = Jupyter notebook used for preprocessing the raw Raman spectroscopy data (not directly usable without raw files)
-- `main.ipynb` = main notebook to run training, evaluation and visualization of results
+- `project.ipynb` = main notebook to run training, evaluation and visualization of results
 - `resnet.py`= defines custom 1D ResNet architecture used for the regression task
 - `data.py` =loading and optional augmentation of the dataset for training.
 - `augment.py`= augmentation functions and tools for both online and offline data augmentation.
