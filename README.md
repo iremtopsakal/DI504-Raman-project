@@ -1,4 +1,9 @@
-## Dataset and Usage Notes
+## General Overview
+
+This project explores implementing of 1D ResNet model to predict crystal violet concentrations from Raman spectra. The model’s performance is evaluated using a combination of regression and classification metrics to reflect both the continuous nature of the predictions and the discrete levels
+of the target concentrations. During training, Mean Squared Error is used as the loss function. Evaluation metrics (MAE, RMSE, R2, and weighted kappa score) are calculated after rounding predictions to the nearest concentration level. 
+
+## Dataset, Codes and Usage Notes
 
 The dataset used in this project belongs to Prof. Dr. Alpan Bek. Due to data sharing restrictions original raw dataset is not shared with this repository.
 
