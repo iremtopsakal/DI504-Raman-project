@@ -8,7 +8,8 @@ The preprocessed dataset used in this study is available via an <a href ="https:
 
 This project is implemented based on [1] and portions of the original code from [1] are adapted. Link: https://github.com/csho33/bacteria-ID
 
-[1] Ho, CS., Jean, N., Hogan, C.A. et al. Rapid identification of pathogenic bacteria using Raman spectroscopy and deep learning. Nat Commun 10, 4927 (2019). https://doi.org/10.1038/s41467-019-12898-9
+
+[1] _Ho, CS., Jean, N., Hogan, C.A. et al. Rapid identification of pathogenic bacteria using Raman spectroscopy and deep learning. Nat Commun 10, 4927 (2019). https://doi.org/10.1038/s41467-019-12898-9_
 
 
 ## Project File Descriptions
