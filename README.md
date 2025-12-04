@@ -11,7 +11,7 @@ The dataset used in this project belongs to Prof. Dr. Alpan Bek. Due to data sha
 
 As a result, `preprocessing.ipynb` notebook which was originally used to process the raw data can not be executed without access to raw files. However, it is included for illustrate the preprocessing steps applied before training.
 
-The preprocessed dataset used in this study is available via an [external link]("https://drive.google.com/drive/folders/1f_oKUhIuQQqCYChH1AAAA71NfNvVo5N5Kruq?usp=sharing"). After downloaded, make sure to update `data_path` variable inside the `main.ipynb` notebook accordingly to point to your local dataset folder.
+The preprocessed dataset used in this study is available via an [external link](""). After downloaded, make sure to update `data_path` variable inside the `main.ipynb` notebook accordingly to point to your local dataset folder.
 
 This project is implemented based on [^1] and portions of the original code from [^1] are adapted. Click [here](https://github.com/csho33/bacteria-ID) for the original code.
 [^1]: Ho, CS., Jean, N., Hogan, C.A. et al. Rapid identification of pathogenic bacteria using Raman spectroscopy and deep learning. Nat Commun 10, 4927 (2019). https://doi.org/10.1038/s41467-019-12898-9
